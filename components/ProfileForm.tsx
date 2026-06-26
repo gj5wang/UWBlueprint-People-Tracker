@@ -13,11 +13,10 @@ interface Props {
   viewerTier: PermissionTier
   viewerMemberId: string
   teams: Team[]
+  backHref?: string
 }
 
-const ALL_ROLES = [...EXECUTIVE_ROLES, ...PROJECT_ROLES]
-
-export default function ProfileForm({ member, viewerTier, viewerMemberId, teams }: Props) {
+export default function ProfileForm({ member, viewerTier, viewerMemberId, teams, backHref = '/sheet' }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,8 +25,19 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
   const isOwnProfile = member.id === viewerMemberId
   const canEdit = canEditMember(viewerTier, viewerMemberId, member.id)
 
-  // Form state — start with current values
+  const isTier2Viewer = viewerTier === 'team_lead' || viewerTier === 'vp' || viewerTier === 'super_admin'
+  const isSuperAdmin = viewerTier === 'super_admin'
+
+  // Own profile: everyone can see/edit all their own fields (except skill_level/notes)
+  // Other's profile: gated by tier
+  const showTier2 = isOwnProfile || isTier2Viewer
+  const showTier3 = isOwnProfile || isSuperAdmin
+
+  // Parse socials JSONB into individual fields
+  const socialsObj = (member.socials ?? {}) as Record<string, string>
+
   const [form, setForm] = useState({
+    // Tier 1
     first_name: member.first_name,
     last_name: member.last_name,
     bp_email: member.bp_email,
@@ -48,17 +58,16 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
     personal_email: member.personal_email ?? '',
     gender: member.gender ?? '',
     ethnic_background: member.ethnic_background ?? '',
+    social_linkedin: socialsObj.linkedin ?? '',
+    social_github: socialsObj.github ?? '',
+    social_instagram: socialsObj.instagram ?? '',
+    social_twitter: socialsObj.twitter ?? '',
   })
 
-  const isTier2Viewer = viewerTier === 'team_lead' || viewerTier === 'vp' || viewerTier === 'super_admin'
-  const isSuperAdmin = viewerTier === 'super_admin'
-
   function toggleRole(role: string) {
-    setForm((f) => ({
+    setForm(f => ({
       ...f,
-      roles: f.roles.includes(role)
-        ? f.roles.filter((r) => r !== role)
-        : [...f.roles, role],
+      roles: f.roles.includes(role) ? f.roles.filter(r => r !== role) : [...f.roles, role],
     }))
   }
 
@@ -72,6 +81,7 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
 
     const supabase = createClient()
 
+    // Tier 1 — all editors
     const update: Partial<MemberFull> = {
       first_name: form.first_name,
       last_name: form.last_name,
@@ -80,15 +90,15 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
       status: form.status as MemberFull['status'],
     }
 
-    // Only VPs and super admins can change team / roles / email
+    // Team / roles / BP email — VP and super admin only
     if (viewerTier === 'vp' || viewerTier === 'super_admin') {
       update.bp_email = form.bp_email
       update.team_id = form.team_id || null
       update.roles = form.roles
     }
 
-    // Tier 2 fields — team leads and above
-    if (isTier2Viewer) {
+    // Tier 2 — own profile OR team lead and above
+    if (isOwnProfile || isTier2Viewer) {
       update.study_coop = form.study_coop || null
       update.location = form.location || null
       update.terms_on_bp = form.terms_on_bp ? parseInt(form.terms_on_bp) : null
@@ -96,17 +106,25 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
       update.role_next_term = form.role_next_term || null
     }
 
-    // Notes and skill level — team leads and above, but hidden from self
+    // Skill level + notes — team lead and above, but NEVER for own profile
     if (isTier2Viewer && !isOwnProfile) {
       update.skill_level = form.skill_level || null
       update.notes = form.notes || null
     }
 
-    // Tier 3 — super admin only
-    if (isSuperAdmin) {
+    // Tier 3 — own profile OR super admin
+    if (isOwnProfile || isSuperAdmin) {
       update.personal_email = form.personal_email || null
       update.gender = form.gender || null
       update.ethnic_background = form.ethnic_background || null
+
+      // Build socials object
+      const socials: Record<string, string> = {}
+      if (form.social_linkedin) socials.linkedin = form.social_linkedin
+      if (form.social_github) socials.github = form.social_github
+      if (form.social_instagram) socials.instagram = form.social_instagram
+      if (form.social_twitter) socials.twitter = form.social_twitter
+      update.socials = Object.keys(socials).length > 0 ? socials : null
     }
 
     const { error: dbError } = await supabase
@@ -125,13 +143,15 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Back + header */}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/sheet" className="btn-secondary !px-2.5">
-            <ChevronLeft size={16} />
-          </Link>
+          {!isOwnProfile && (
+            <Link href={backHref} className="btn-secondary !px-2.5">
+              <ChevronLeft size={16} />
+            </Link>
+          )}
           <div>
             <h1 className="text-xl font-bold text-gray-900">
               {isOwnProfile ? 'My Profile' : `${member.first_name} ${member.last_name}`}
@@ -150,9 +170,7 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <div className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
       {success && (
         <div className="rounded-lg bg-green-50 border border-green-100 px-4 py-3 text-sm text-green-700">
@@ -162,114 +180,82 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
 
       {/* ── Section 1: Basic info ── */}
       <section className="card p-6 space-y-5">
-        <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-          Basic Information
-        </h2>
+        <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Basic Information</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">First name</label>
-            <input
-              className="input"
-              value={form.first_name}
-              onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
-              disabled={!canEdit}
-              required
-            />
+            <input className="input" value={form.first_name}
+              onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+              disabled={!canEdit} required />
           </div>
           <div>
             <label className="label">Last name</label>
-            <input
-              className="input"
-              value={form.last_name}
-              onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
-              disabled={!canEdit}
-              required
-            />
+            <input className="input" value={form.last_name}
+              onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
+              disabled={!canEdit} required />
           </div>
           <div>
             <label className="label">BP Email</label>
-            <input
-              className="input"
-              type="email"
-              value={form.bp_email}
-              onChange={(e) => setForm((f) => ({ ...f, bp_email: e.target.value }))}
-              disabled={!canEdit || (viewerTier !== 'vp' && viewerTier !== 'super_admin')}
-            />
+            <input className="input" type="email" value={form.bp_email}
+              onChange={e => setForm(f => ({ ...f, bp_email: e.target.value }))}
+              disabled={!canEdit || (viewerTier !== 'vp' && viewerTier !== 'super_admin')} />
           </div>
           <div>
             <label className="label">Program</label>
-            <input
-              className="input"
-              value={form.program}
-              onChange={(e) => setForm((f) => ({ ...f, program: e.target.value }))}
-              disabled={!canEdit}
-              placeholder="e.g. Computer Science"
-            />
+            <input className="input" value={form.program}
+              onChange={e => setForm(f => ({ ...f, program: e.target.value }))}
+              disabled={!canEdit} placeholder="e.g. Computer Science" />
           </div>
           <div>
             <label className="label">Year of study</label>
-            <input
-              className="input"
-              value={form.year_of_study}
-              onChange={(e) => setForm((f) => ({ ...f, year_of_study: e.target.value }))}
-              disabled={!canEdit}
-              placeholder="e.g. 3A"
-            />
+            <input className="input" value={form.year_of_study}
+              onChange={e => setForm(f => ({ ...f, year_of_study: e.target.value }))}
+              disabled={!canEdit} placeholder="e.g. 3A" />
           </div>
           <div>
             <label className="label">Status</label>
-            <select
-              className="input"
-              value={form.status}
-              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as any }))}
-              disabled={!canEdit}
-            >
+            <select className="input" value={form.status}
+              onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))}
+              disabled={!canEdit}>
               <option value="current">Current</option>
               <option value="alumni">Alumni</option>
             </select>
           </div>
         </div>
 
-        {/* Team — VP/super admin only */}
-        {(viewerTier === 'vp' || viewerTier === 'super_admin') && (
-          <div>
-            <label className="label">Team</label>
-            <select
-              className="input"
-              value={form.team_id}
-              onChange={(e) => setForm((f) => ({ ...f, team_id: e.target.value }))}
-              disabled={!canEdit}
-            >
+        {/* Team — editable by VP/super admin; read-only display for everyone else */}
+        <div>
+          <label className="label">Team</label>
+          {(viewerTier === 'vp' || viewerTier === 'super_admin') ? (
+            <select className="input" value={form.team_id}
+              onChange={e => setForm(f => ({ ...f, team_id: e.target.value }))}
+              disabled={!canEdit}>
               <option value="">— No team —</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-gray-700 py-2">
+              {(member.team as any)?.name ?? <span className="text-gray-400">Not assigned</span>}
+            </p>
+          )}
+        </div>
 
-        {/* Roles — VP/super admin can change; others view only */}
+        {/* Roles — editable by VP/super admin; read-only for others */}
         <div>
           <label className="label">Roles</label>
           {(viewerTier === 'vp' || viewerTier === 'super_admin') ? (
-            <div className="space-y-3">
+            <div className="space-y-3 pt-1">
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Executive</p>
                 <div className="flex flex-wrap gap-2">
-                  {EXECUTIVE_ROLES.map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => toggleRole(role)}
+                  {EXECUTIVE_ROLES.map(role => (
+                    <button key={role} type="button" onClick={() => toggleRole(role)}
                       className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
                         form.roles.includes(role)
                           ? 'bg-blueprint-blue text-white border-blueprint-blue'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-blueprint-blue'
-                      }`}
-                    >
+                      }`}>
                       {role}
                     </button>
                   ))}
@@ -278,17 +264,13 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Project</p>
                 <div className="flex flex-wrap gap-2">
-                  {PROJECT_ROLES.map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => toggleRole(role)}
+                  {PROJECT_ROLES.map(role => (
+                    <button key={role} type="button" onClick={() => toggleRole(role)}
                       className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
                         form.roles.includes(role)
                           ? 'bg-blueprint-blue text-white border-blueprint-blue'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-blueprint-blue'
-                      }`}
-                    >
+                      }`}>
                       {role}
                     </button>
                   ))}
@@ -298,36 +280,29 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
           ) : (
             <div className="flex flex-wrap gap-2 pt-1">
               {member.roles.length > 0
-                ? member.roles.map((r) => (
-                    <span key={r} className="badge-blue">
-                      {r}
-                    </span>
-                  ))
+                ? member.roles.map(r => <span key={r} className="badge-blue">{r}</span>)
                 : <span className="text-sm text-gray-400">No roles assigned</span>}
             </div>
           )}
         </div>
       </section>
 
-      {/* ── Section 2: Tier 2 fields ── */}
-      {isTier2Viewer && (
+      {/* ── Section 2: Team details ── */}
+      {showTier2 && (
         <section className="card p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-            Team Details
-            <span className="ml-2 normal-case font-normal text-gray-400 text-xs">
-              Team leads and above
-            </span>
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Team Details</h2>
+            {!isOwnProfile && (
+              <p className="text-xs text-gray-400 mt-0.5">Visible to team leads and above</p>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Study / Co-op</label>
-              <select
-                className="input"
-                value={form.study_coop}
-                onChange={(e) => setForm((f) => ({ ...f, study_coop: e.target.value }))}
-                disabled={!canEdit}
-              >
+              <select className="input" value={form.study_coop}
+                onChange={e => setForm(f => ({ ...f, study_coop: e.target.value }))}
+                disabled={!canEdit}>
                 <option value="">— Select —</option>
                 <option value="study">Study</option>
                 <option value="coop">Co-op</option>
@@ -335,33 +310,21 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
             </div>
             <div>
               <label className="label">Location</label>
-              <input
-                className="input"
-                value={form.location}
-                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                disabled={!canEdit}
-                placeholder="e.g. Waterloo, Toronto"
-              />
+              <input className="input" value={form.location}
+                onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                disabled={!canEdit} placeholder="e.g. Waterloo, Toronto" />
             </div>
             <div>
               <label className="label">Terms on BP</label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                value={form.terms_on_bp}
-                onChange={(e) => setForm((f) => ({ ...f, terms_on_bp: e.target.value }))}
-                disabled={!canEdit}
-              />
+              <input className="input" type="number" min={0} value={form.terms_on_bp}
+                onChange={e => setForm(f => ({ ...f, terms_on_bp: e.target.value }))}
+                disabled={!canEdit} />
             </div>
             <div>
               <label className="label">Coming back next term?</label>
-              <select
-                className="input"
-                value={form.coming_back}
-                onChange={(e) => setForm((f) => ({ ...f, coming_back: e.target.value }))}
-                disabled={!canEdit}
-              >
+              <select className="input" value={form.coming_back}
+                onChange={e => setForm(f => ({ ...f, coming_back: e.target.value }))}
+                disabled={!canEdit}>
                 <option value="">— Unknown —</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
@@ -369,30 +332,23 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
             </div>
             <div>
               <label className="label">Role next term</label>
-              <input
-                className="input"
-                value={form.role_next_term}
-                onChange={(e) => setForm((f) => ({ ...f, role_next_term: e.target.value }))}
-                disabled={!canEdit}
-                placeholder="e.g. Project Lead"
-              />
+              <input className="input" value={form.role_next_term}
+                onChange={e => setForm(f => ({ ...f, role_next_term: e.target.value }))}
+                disabled={!canEdit} placeholder="e.g. Project Lead" />
             </div>
           </div>
 
-          {/* Notes and skill level — hidden from own profile */}
-          {!isOwnProfile && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Skill level + notes — only visible when viewing someone else, team lead and above */}
+          {!isOwnProfile && isTier2Viewer && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 pt-4">
               <div>
                 <label className="label">
                   Skill level
                   <span className="ml-1.5 text-xs text-amber-600 font-normal">(hidden from member)</span>
                 </label>
-                <select
-                  className="input"
-                  value={form.skill_level}
-                  onChange={(e) => setForm((f) => ({ ...f, skill_level: e.target.value }))}
-                  disabled={!canEdit}
-                >
+                <select className="input" value={form.skill_level}
+                  onChange={e => setForm(f => ({ ...f, skill_level: e.target.value }))}
+                  disabled={!canEdit}>
                   <option value="">— Not set —</option>
                   <option value="beginner">Beginner</option>
                   <option value="intermediate">Intermediate</option>
@@ -405,66 +361,82 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams 
                   Notes
                   <span className="ml-1.5 text-xs text-amber-600 font-normal">(hidden from member)</span>
                 </label>
-                <textarea
-                  className="input resize-none"
-                  rows={3}
-                  value={form.notes}
-                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  disabled={!canEdit}
-                  placeholder="Internal notes about this member…"
-                />
+                <textarea className="input resize-none" rows={3} value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  disabled={!canEdit} placeholder="Internal notes about this member…" />
               </div>
             </div>
           )}
         </section>
       )}
 
-      {/* ── Section 3: Super admin only ── */}
-      {isSuperAdmin && (
-        <section className="card p-6 space-y-5 border-amber-200">
-          <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-            Sensitive Information
-            <span className="ml-2 normal-case font-normal text-gray-400 text-xs">
-              Super admins only
-            </span>
-          </h2>
+      {/* ── Section 3: Personal / sensitive info ── */}
+      {showTier3 && (
+        <section className="card p-6 space-y-5">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Personal Information</h2>
+            {!isOwnProfile && (
+              <p className="text-xs text-gray-400 mt-0.5">Visible to Co-presidents and VP Talent only</p>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Personal email</label>
-              <input
-                className="input"
-                type="email"
-                value={form.personal_email}
-                onChange={(e) => setForm((f) => ({ ...f, personal_email: e.target.value }))}
-                disabled={!canEdit}
-              />
+              <input className="input" type="email" value={form.personal_email}
+                onChange={e => setForm(f => ({ ...f, personal_email: e.target.value }))}
+                disabled={!canEdit} placeholder="personal@email.com" />
             </div>
             <div>
               <label className="label">Gender</label>
-              <input
-                className="input"
-                value={form.gender}
-                onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
-                disabled={!canEdit}
-              />
+              <input className="input" value={form.gender}
+                onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
+                disabled={!canEdit} placeholder="e.g. Woman, Man, Non-binary…" />
             </div>
             <div>
               <label className="label">Ethnic background</label>
-              <input
-                className="input"
-                value={form.ethnic_background}
-                onChange={(e) => setForm((f) => ({ ...f, ethnic_background: e.target.value }))}
-                disabled={!canEdit}
-              />
+              <input className="input" value={form.ethnic_background}
+                onChange={e => setForm(f => ({ ...f, ethnic_background: e.target.value }))}
+                disabled={!canEdit} />
+            </div>
+          </div>
+
+          {/* Socials */}
+          <div>
+            <p className="label mb-2">Socials (if shared)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label text-gray-400 font-normal">LinkedIn</label>
+                <input className="input" value={form.social_linkedin}
+                  onChange={e => setForm(f => ({ ...f, social_linkedin: e.target.value }))}
+                  disabled={!canEdit} placeholder="linkedin.com/in/username" />
+              </div>
+              <div>
+                <label className="label text-gray-400 font-normal">GitHub</label>
+                <input className="input" value={form.social_github}
+                  onChange={e => setForm(f => ({ ...f, social_github: e.target.value }))}
+                  disabled={!canEdit} placeholder="github.com/username" />
+              </div>
+              <div>
+                <label className="label text-gray-400 font-normal">Instagram</label>
+                <input className="input" value={form.social_instagram}
+                  onChange={e => setForm(f => ({ ...f, social_instagram: e.target.value }))}
+                  disabled={!canEdit} placeholder="@username" />
+              </div>
+              <div>
+                <label className="label text-gray-400 font-normal">Twitter / X</label>
+                <input className="input" value={form.social_twitter}
+                  onChange={e => setForm(f => ({ ...f, social_twitter: e.target.value }))}
+                  disabled={!canEdit} placeholder="@username" />
+              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* Save button (bottom) */}
+      {/* Save (bottom) */}
       {canEdit && (
-        <div className="flex justify-end">
+        <div className="flex justify-end pb-4">
           <button type="submit" disabled={saving} className="btn-primary">
             <Save size={15} />
             {saving ? 'Saving…' : 'Save changes'}

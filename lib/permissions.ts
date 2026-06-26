@@ -138,5 +138,5 @@ export function canDownloadCSV(tier: PermissionTier): boolean {
 }
 
 export function canViewDashboard(tier: PermissionTier): boolean {
-  return tier === 'super_admin'
+  return true // All members have a personal dashboard
 }

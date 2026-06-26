@@ -238,6 +238,11 @@ create policy "notes_delete_author_or_admin"
     or public.my_permission_tier() = 'super_admin'
   );
 
+-- ─── Table Grants ────────────────────────────────────────────
+grant select, insert, update, delete on public.members to authenticated;
+grant select, insert, update, delete on public.member_notes to authenticated;
+grant select on public.teams to authenticated;
+
 -- ─── Indexes ─────────────────────────────────────────────────
 create index if not exists members_user_id_idx on public.members(user_id);
 create index if not exists members_team_id_idx on public.members(team_id);

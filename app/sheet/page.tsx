@@ -31,11 +31,15 @@ export default async function SheetPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-2">
               Account pending
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mb-4">
               Your @uwblueprint.org account is verified, but your member profile
               hasn't been created yet. Please ask a super admin (Co-president or
               VP Talent) to add you.
             </p>
+            <p className="text-xs text-gray-400 mb-4 font-mono break-all">debug uid: {user.id}</p>
+            <a href="/auth/signout" className="text-sm text-blueprint-blue underline">
+              Sign out
+            </a>
           </div>
         </div>
       </div>
