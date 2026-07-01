@@ -21,30 +21,9 @@ export default async function SheetPage() {
     .eq('user_id', user.id)
     .single()
 
-  // If they've authenticated but don't have a member record yet,
-  // a super admin needs to create one for them.
-  if (!viewerRecord) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <div className="flex flex-1 items-center justify-center p-8">
-          <div className="card max-w-md p-8 text-center">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              Account pending
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Your @uwblueprint.org account is verified, but your member profile
-              hasn't been created yet. Please ask a super admin (Co-president or
-              VP Talent) to add you.
-            </p>
-            <p className="text-xs text-gray-400 mb-4 font-mono break-all">debug uid: {user.id}</p>
-            <a href="/auth/signout" className="text-sm text-blueprint-blue underline">
-              Sign out
-            </a>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Auto-provision in auth callback means this shouldn't happen.
+  // If it does (e.g. first-login race), redirect to dashboard to try again.
+  if (!viewerRecord) redirect('/dashboard')
 
   const viewerTier = getPermissionTier(viewerRecord.roles)
 
@@ -56,7 +35,7 @@ export default async function SheetPage() {
       roles, program, year_of_study, status,
       study_coop, location, terms_on_bp, skill_level, notes,
       coming_back, role_next_term,
-      personal_email, socials, gender, ethnic_background,
+      personal_email, socials, gender, ethnic_background, avatar_url, bio,
       created_at, updated_at,
       team:teams(id, name)
     `)
@@ -69,23 +48,30 @@ export default async function SheetPage() {
   const memberList = (members ?? []) as unknown as MemberFull[]
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-screen flex-col bg-blueprint-gray-light">
       <Navbar
         userFullName={`${viewerRecord.first_name} ${viewerRecord.last_name}`}
         permissionTier={viewerTier}
+        memberId={viewerRecord.id}
       />
 
       <main className="mx-auto w-full max-w-screen-xl flex-1 px-4 py-8 sm:px-6">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        {/* Gradient header */}
+        <div
+          className="mb-6 flex items-center justify-between rounded-2xl px-6 py-6 text-white shadow-blue-lg"
+          style={{ background: 'linear-gradient(135deg, #0f1740 0%, #1e3a8a 45%, #2563EB 100%)' }}
+        >
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Members</h1>
-            <p className="text-sm text-gray-500 mt-0.5 capitalize">
-              Viewing as <span className="font-medium">{viewerTier.replace('_', ' ')}</span>
+            <h1 className="text-xl font-bold">Members</h1>
+            <p className="text-sm text-blue-200/70 mt-0.5 capitalize">
+              Viewing as <span className="font-medium text-blue-200">{viewerTier.replace('_', ' ')}</span>
             </p>
           </div>
           {canConfigureDropdowns(viewerTier) && (
-            <Link href="/admin/members/new" className="btn-primary">
+            <Link
+              href="/admin/members/new"
+              className="flex items-center gap-1.5 rounded-xl bg-white/15 border border-white/20 px-4 py-2 text-sm font-semibold text-white hover:bg-white/25 transition-colors"
+            >
               <Plus size={16} />
               Add member
             </Link>

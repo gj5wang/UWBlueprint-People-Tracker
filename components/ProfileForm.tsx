@@ -7,6 +7,7 @@ import { type MemberFull, type PermissionTier, type Team, EXECUTIVE_ROLES, PROJE
 import { canEditMember } from '@/lib/permissions'
 import { Save, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
+import AvatarUpload from '@/components/AvatarUpload'
 
 interface Props {
   member: MemberFull
@@ -21,6 +22,7 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(member.avatar_url ?? null)
 
   const isOwnProfile = member.id === viewerMemberId
   const canEdit = canEditMember(viewerTier, viewerMemberId, member.id)
@@ -62,6 +64,8 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
     social_github: socialsObj.github ?? '',
     social_instagram: socialsObj.instagram ?? '',
     social_twitter: socialsObj.twitter ?? '',
+    // Public bio — visible to all, editable by self
+    bio: member.bio ?? '',
   })
 
   function toggleRole(role: string) {
@@ -88,11 +92,16 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
       program: form.program || null,
       year_of_study: form.year_of_study || null,
       status: form.status as MemberFull['status'],
+      // Bio — editable by self or super_admin
+      ...(isOwnProfile || isSuperAdmin ? { bio: form.bio || null } : {}),
     }
 
-    // Team / roles / BP email — VP and super admin only
-    if (viewerTier === 'vp' || viewerTier === 'super_admin') {
+    // BP email — editable on own profile, or by VP/super admin on any profile
+    if (isOwnProfile || viewerTier === 'vp' || viewerTier === 'super_admin') {
       update.bp_email = form.bp_email
+    }
+    // Team + roles — VP and super admin only
+    if (viewerTier === 'vp' || viewerTier === 'super_admin') {
       update.team_id = form.team_id || null
       update.roles = form.roles
     }
@@ -145,14 +154,24 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {!isOwnProfile && (
-            <Link href={backHref} className="btn-secondary !px-2.5">
-              <ChevronLeft size={16} />
-            </Link>
-          )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {/* Avatar */}
+          <AvatarUpload
+            memberId={member.id}
+            currentUrl={avatarUrl}
+            firstName={member.first_name}
+            lastName={member.last_name}
+            canEdit={canEdit}
+            onUpdate={(url) => setAvatarUrl(url)}
+          />
+
           <div>
+            {!isOwnProfile && (
+              <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-1">
+                <ChevronLeft size={14} /> Back
+              </Link>
+            )}
             <h1 className="text-xl font-bold text-gray-900">
               {isOwnProfile ? 'My Profile' : `${member.first_name} ${member.last_name}`}
             </h1>
@@ -161,8 +180,9 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
             )}
           </div>
         </div>
+
         {canEdit && (
-          <button type="submit" disabled={saving} className="btn-primary">
+          <button type="submit" disabled={saving} className="btn-primary shrink-0">
             <Save size={15} />
             {saving ? 'Saving…' : 'Save changes'}
           </button>
@@ -199,7 +219,7 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
             <label className="label">BP Email</label>
             <input className="input" type="email" value={form.bp_email}
               onChange={e => setForm(f => ({ ...f, bp_email: e.target.value }))}
-              disabled={!canEdit || (viewerTier !== 'vp' && viewerTier !== 'super_admin')} />
+              disabled={!canEdit} />
           </div>
           <div>
             <label className="label">Program</label>
@@ -222,6 +242,27 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
               <option value="alumni">Alumni</option>
             </select>
           </div>
+        </div>
+
+        {/* Bio — editable by self, always visible */}
+        <div className="sm:col-span-2">
+          <label className="label">Bio</label>
+          {(isOwnProfile || isSuperAdmin) ? (
+            <textarea
+              className="input resize-none"
+              rows={3}
+              placeholder="Write a short bio about yourself…"
+              value={form.bio}
+              onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+              disabled={!canEdit}
+            />
+          ) : (
+            <p className="text-sm text-gray-700 py-2 whitespace-pre-wrap">
+              {member.bio
+                ? member.bio
+                : <span className="text-gray-400 italic">No bio yet.</span>}
+            </p>
+          )}
         </div>
 
         {/* Team — editable by VP/super admin; read-only display for everyone else */}

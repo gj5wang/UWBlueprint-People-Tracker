@@ -28,10 +28,11 @@ export default async function AdminPage() {
     .select('id', { count: 'exact', head: true })
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-screen flex-col bg-blueprint-gray-light">
       <Navbar
         userFullName={`${viewerRecord.first_name} ${viewerRecord.last_name}`}
         permissionTier={tier}
+        memberId={viewerRecord.id}
       />
       <main className="mx-auto w-full max-w-screen-xl flex-1 px-4 py-8 sm:px-6">
         <h1 className="text-xl font-bold text-gray-900 mb-6">Admin</h1>

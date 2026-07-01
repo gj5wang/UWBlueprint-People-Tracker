@@ -58,9 +58,9 @@ function HorizontalBar({ data, title }: { data: ChartItem[]; title: string }) {
                   {count} <span className="text-gray-400">({total > 0 ? Math.round((count / total) * 100) : 0}%)</span>
                 </span>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className={`h-2 rounded-full transition-all ${PALETTE[i % PALETTE.length]}`}
+                  className={`h-3 rounded-full transition-all ${PALETTE[i % PALETTE.length]}`}
                   style={{ width: `${(count / max) * 100}%` }}
                 />
               </div>
@@ -83,7 +83,7 @@ function SegmentedBar({ data, title }: { data: ChartItem[]; title: string }) {
         <p className="text-sm text-gray-400 italic">No data yet</p>
       ) : (
         <>
-          <div className="flex h-5 rounded-full overflow-hidden mb-4 gap-0.5">
+          <div className="flex h-3 rounded-full overflow-hidden mb-4 gap-0.5">
             {filtered.map(({ label, count }, i) => (
               <div
                 key={label}

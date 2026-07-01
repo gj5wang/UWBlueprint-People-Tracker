@@ -4,6 +4,25 @@ import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
+/** Blueprint pinwheel logo — 6 curved arms spiral intertwining */
+function BlueprintLogo({ size = 64, color = 'white' }: { size?: number; color?: string }) {
+  const arms = [
+    'M65,50 Q50,50 50,88',
+    'M57.5,63 Q50,50 17.1,69',
+    'M42.5,63 Q50,50 17.1,31',
+    'M35,50 Q50,50 50,12',
+    'M42.5,37 Q50,50 82.9,31',
+    'M57.5,37 Q50,50 82.9,69',
+  ]
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      {arms.map((d, i) => (
+        <path key={i} d={d} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" />
+      ))}
+    </svg>
+  )
+}
+
 function LoginForm() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
@@ -15,7 +34,6 @@ function LoginForm() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
-          // Restrict to uwblueprint.org Google Workspace
           hd: 'uwblueprint.org',
         },
       },
@@ -23,41 +41,71 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
+    <div
+      className="flex min-h-screen flex-col items-center justify-center px-4"
+      style={{
+        background: 'linear-gradient(135deg, #0f1740 0%, #1e3a8a 45%, #2563EB 100%)',
+      }}
+    >
+      {/* Subtle decorative circles */}
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden="true"
+      >
+        <div
+          className="absolute -top-40 -right-40 h-96 w-96 rounded-full opacity-20"
+          style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full opacity-15"
+          style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }}
+        />
+      </div>
+
       {/* Logo + wordmark */}
-      <div className="mb-10 flex flex-col items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blueprint-blue">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <path d="M4 4h8v8H4V4zM16 4h8v8h-8V4zM4 16h8v8H4v-8zM16 16h8v8h-8v-8z" fill="white" />
-          </svg>
-        </div>
+      <div className="relative mb-8 flex flex-col items-center gap-4">
+        <BlueprintLogo size={64} color="white" />
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-blueprint-navy">UW Blueprint</h1>
-          <p className="text-sm text-gray-500 mt-0.5">People Tracker</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">UW Blueprint</h1>
+          <p className="text-sm text-blue-200/70 mt-1 font-medium tracking-wide uppercase">
+            People Tracker
+          </p>
         </div>
       </div>
 
-      {/* Card */}
-      <div className="card w-full max-w-sm p-8">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Sign in</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Use your <span className="font-medium text-blueprint-blue">@uwblueprint.org</span> Google account to continue.
+      {/* Glass card */}
+      <div
+        className="relative w-full max-w-sm rounded-2xl p-8"
+        style={{
+          background: 'rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        }}
+      >
+        <h2 className="text-lg font-semibold text-white mb-1">Welcome back</h2>
+        <p className="text-sm text-blue-200/70 mb-6">
+          Sign in with your{' '}
+          <span className="font-medium text-blue-300">@uwblueprint.org</span> account.
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-xl bg-red-500/20 border border-red-400/30 px-4 py-3 text-sm text-red-200">
             {error === 'auth_failed'
               ? 'Authentication failed. Please try again.'
               : 'An error occurred. Please try again.'}
           </div>
         )}
 
-        <button onClick={handleGoogleLogin} className="btn-primary w-full gap-3">
+        <button
+          onClick={handleGoogleLogin}
+          className="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-800 shadow-md transition hover:bg-gray-50 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50"
+        >
           <GoogleIcon />
           Continue with Google
         </button>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-5 text-center text-xs text-blue-200/50">
           Only @uwblueprint.org accounts are permitted.
         </p>
       </div>
