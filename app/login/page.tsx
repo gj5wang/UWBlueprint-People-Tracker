@@ -4,20 +4,13 @@ import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 
-/** Blueprint pinwheel logo — 6 curved arms spiral intertwining */
+/** Blueprint gear logo — 6 L-shaped solid arms in a pinwheel */
 function BlueprintLogo({ size = 64, color = 'white' }: { size?: number; color?: string }) {
-  const arms = [
-    'M65,50 Q50,50 50,88',
-    'M57.5,63 Q50,50 17.1,69',
-    'M42.5,63 Q50,50 17.1,31',
-    'M35,50 Q50,50 50,12',
-    'M42.5,37 Q50,50 82.9,31',
-    'M57.5,37 Q50,50 82.9,69',
-  ]
+  const arm = 'M18,-8 L42,-8 L42,20 L28,20 L28,8 L18,8 Z'
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      {arms.map((d, i) => (
-        <path key={i} d={d} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" />
+      {[0, 60, 120, 180, 240, 300].map((deg) => (
+        <path key={deg} d={arm} fill={color} transform={`rotate(${deg}, 50, 50) translate(50, 50)`} />
       ))}
     </svg>
   )

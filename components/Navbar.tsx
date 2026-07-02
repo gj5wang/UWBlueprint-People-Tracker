@@ -13,29 +13,21 @@ interface NavbarProps {
   memberId: string
 }
 
-/** Blueprint pinwheel logo — 6 curved arms intertwining in a spiral */
+/** Blueprint gear logo — 6 L-shaped solid arms in a pinwheel */
 function BlueprintLogo({ size = 36, color = 'white' }: { size?: number; color?: string }) {
-  // Each arm: quadratic bezier from inner radius (at angle a) → center → outer radius (at angle a+90°)
-  // Creates a spiral/weaving effect
-  const arms = [
-    'M65,50 Q50,50 50,88',
-    'M57.5,63 Q50,50 17.1,69',
-    'M42.5,63 Q50,50 17.1,31',
-    'M35,50 Q50,50 50,12',
-    'M42.5,37 Q50,50 82.9,31',
-    'M57.5,37 Q50,50 82.9,69',
-  ]
+  // Single arm: rectangular body pointing right, with clockwise hook at outer tip
+  // M innerX,-halfW  → outer top → hook bottom-right → hook bottom-left → arm junction → innerX,+halfW
+  const arm = 'M18,-8 L42,-8 L42,20 L28,20 L28,8 L18,8 Z'
+  const angles = [0, 60, 120, 180, 240, 300]
 
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      {arms.map((d, i) => (
+      {angles.map((deg) => (
         <path
-          key={i}
-          d={d}
-          fill="none"
-          stroke={color}
-          strokeWidth="8"
-          strokeLinecap="round"
+          key={deg}
+          d={arm}
+          fill={color}
+          transform={`rotate(${deg}, 50, 50) translate(50, 50)`}
         />
       ))}
     </svg>

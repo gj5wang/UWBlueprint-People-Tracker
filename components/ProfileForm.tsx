@@ -430,9 +430,19 @@ export default function ProfileForm({ member, viewerTier, viewerMemberId, teams,
             </div>
             <div>
               <label className="label">Gender</label>
-              <input className="input" value={form.gender}
+              <select className="input" value={form.gender}
                 onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
-                disabled={!canEdit} placeholder="e.g. Woman, Man, Non-binary…" />
+                disabled={!canEdit}>
+                <option value="">— Prefer not to say —</option>
+                <option value="Woman">Woman</option>
+                <option value="Man">Man</option>
+                <option value="Non-binary">Non-binary</option>
+                <option value="Genderqueer">Genderqueer</option>
+                <option value="Transgender">Transgender</option>
+                <option value="Two-Spirit">Two-Spirit</option>
+                <option value="Other">Other</option>
+                <option value="Prefer not to say">Prefer not to say</option>
+              </select>
             </div>
             <div>
               <label className="label">Ethnic background</label>
